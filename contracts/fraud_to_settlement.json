@@ -1,0 +1,21 @@
+{
+  "contract_id": "FRAUD_TO_SETTLEMENT_V1",
+  "source": "FraudAgent",
+  "target": "SettlementAgent",
+  "required_fields": {
+    "claim_id": "string",
+    "risk_level": "enum:LOW,MEDIUM,HIGH",
+    "risk_score": "number:probability",
+    "reasons": "array",
+    "evidence_ids": "array",
+    "recommendation": "enum:PROCEED,HUMAN_REVIEW,REJECT"
+  },
+  "rules": [
+    "risk_score must be between 0.0 and 1.0",
+    "if risk_level is HIGH then evidence_ids must be non-empty",
+    "if risk_level is HIGH then reasons must be non-empty"
+  ],
+  "semantic_requirements": {
+    "risk_level": ["risk_score", "reasons", "evidence_ids"]
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "claim_id": "CLM-1001",
+  "policy_id": "POL-1001",
+  "incident_date": "2026-08-25",
+  "incident_type": "ACCIDENT",
+  "incident_description": "Vehicle rear-ended at traffic signal. Bumper, headlight and bonnet damaged.",
+  "claimant_name": "Arjun Sharma",
+  "estimated_damage": {
+    "amount": 60000,
+    "currency": "INR"
+  },
+  "supporting_documents": ["CLAIM_FORM_001", "PHOTO_001", "PHOTO_002"],
+  "__assessment__": {
+    "damage_items": [
+      {"part": "bumper", "amount": 30000, "description": "Front bumper replacement"},
+      {"part": "headlight", "amount": 20000, "description": "Left headlight replacement"},
+      {"part": "labor", "amount": 10000, "description": "Labor charges"}
+    ],
+    "assessed_amount": 60000,
+    "currency": "INR",
+    "source": "ASSESSMENT_REPORT",
+    "evidence_ids": ["PHOTO_001", "PHOTO_002"],
+    "notes": "Standard motor assessment"
+  },
+  "__fraud__": {
+    "risk_level": "LOW",
+    "risk_score": 0.10,
+    "reasons": [],
+    "evidence_ids": ["FRAUD-CHECK-001"],
+    "recommendation": "PROCEED",
+    "checked_against": []
+  }
+}

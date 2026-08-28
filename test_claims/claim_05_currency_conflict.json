@@ -1,0 +1,24 @@
+{
+  "claim_id": "CLM-1005",
+  "policy_id": "POL-1001",
+  "incident_date": "2026-08-15",
+  "incident_type": "ACCIDENT",
+  "incident_description": "Side-impact collision. Door and mirror damaged.",
+  "claimant_name": "Rahul Gupta",
+  "estimated_damage": {
+    "amount": 45000,
+    "currency": "INR"
+  },
+  "supporting_documents": ["CLAIM_FORM_005", "PHOTO_005"],
+  "__assessment__": {
+    "damage_items": [
+      {"part": "door", "amount": 30000, "description": "Driver door replacement"},
+      {"part": "mirror", "amount": 15000, "description": "Side mirror"}
+    ],
+    "assessed_amount": 45000,
+    "currency": "USD",
+    "source": "ASSESSMENT_REPORT",
+    "evidence_ids": ["PHOTO_005"],
+    "notes": "NOTE: currency is USD — conflict with policy currency INR"
+  }
+}

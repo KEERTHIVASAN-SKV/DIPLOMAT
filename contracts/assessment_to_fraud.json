@@ -1,0 +1,21 @@
+{
+  "contract_id": "ASSESSMENT_TO_FRAUD_V1",
+  "source": "AssessmentAgent",
+  "target": "FraudAgent",
+  "required_fields": {
+    "claim_id": "string",
+    "damage_items": "array:non-empty",
+    "assessed_amount": "number:positive",
+    "currency": "currency:ISO-4217",
+    "source": "string",
+    "evidence_ids": "array:non-empty"
+  },
+  "rules": [
+    "currency must be INR",
+    "assessed_amount must be > 0",
+    "assessed_amount must equal sum of damage_items"
+  ],
+  "semantic_requirements": {
+    "assessed_amount": ["currency", "source"]
+  }
+}

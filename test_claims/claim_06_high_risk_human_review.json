@@ -1,0 +1,34 @@
+{
+  "claim_id": "CLM-1006",
+  "policy_id": "POL-1002",
+  "incident_date": "2026-08-18",
+  "incident_type": "HEALTH",
+  "incident_description": "Hospitalization for surgery. ICU and ward charges incurred.",
+  "claimant_name": "Sunita Iyer",
+  "estimated_damage": {
+    "amount": 280000,
+    "currency": "INR"
+  },
+  "supporting_documents": ["CLAIM_FORM_006", "HOSPITAL_BILL_001", "DISCHARGE_SUMMARY_001"],
+  "__assessment__": {
+    "damage_items": [
+      {"part": "ICU", "amount": 120000, "description": "ICU charges 4 days"},
+      {"part": "surgery", "amount": 100000, "description": "Surgical procedure"},
+      {"part": "medicines", "amount": 30000, "description": "Medicines"},
+      {"part": "ward", "amount": 30000, "description": "Ward charges 6 days"}
+    ],
+    "assessed_amount": 280000,
+    "currency": "INR",
+    "source": "ASSESSMENT_REPORT",
+    "evidence_ids": ["HOSPITAL_BILL_001", "DISCHARGE_SUMMARY_001"],
+    "notes": "Health claim with multiple previous claims from claimant"
+  },
+  "__fraud__": {
+    "risk_level": "HIGH",
+    "risk_score": 0.85,
+    "reasons": ["multiple_recent_claims", "claim_frequency_anomaly"],
+    "evidence_ids": ["CLM-0091", "CLM-0102"],
+    "recommendation": "HUMAN_REVIEW",
+    "checked_against": ["CLM-0091", "CLM-0102"]
+  }
+}

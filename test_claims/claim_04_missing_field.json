@@ -1,0 +1,22 @@
+{
+  "claim_id": "CLM-1004",
+  "policy_id": "POL-1001",
+  "incident_date": "2026-08-10",
+  "incident_type": "THEFT",
+  "incident_description": "Vehicle stolen from parking lot overnight.",
+  "claimant_name": "Meera Pillai",
+  "estimated_damage": {
+    "amount": 80000,
+    "currency": "INR"
+  },
+  "supporting_documents": ["CLAIM_FORM_004", "POLICE_REPORT_001"],
+  "__assessment__": {
+    "damage_items": [
+      {"part": "vehicle", "amount": 80000, "description": "Total vehicle loss"}
+    ],
+    "assessed_amount": 80000,
+    "source": "ASSESSMENT_REPORT",
+    "evidence_ids": ["POLICE_REPORT_001"],
+    "notes": "NOTE: currency field intentionally omitted"
+  }
+}

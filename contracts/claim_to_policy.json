@@ -1,0 +1,22 @@
+{
+  "contract_id": "CLAIM_TO_POLICY_V1",
+  "source": "ClaimAgent",
+  "target": "PolicyAgent",
+  "required_fields": {
+    "claim_id": "string",
+    "policy_id": "string",
+    "incident_date": "date:YYYY-MM-DD",
+    "incident_type": "enum:ACCIDENT,THEFT,FIRE,HEALTH,FLOOD,NATURAL_DISASTER",
+    "incident_description": "string",
+    "claimant_name": "string",
+    "estimated_damage.amount": "number:positive",
+    "estimated_damage.currency": "currency:ISO-4217"
+  },
+  "rules": [
+    "estimated_damage.currency must be INR",
+    "estimated_damage.amount must be > 0"
+  ],
+  "semantic_requirements": {
+    "estimated_damage": ["amount", "currency"]
+  }
+}

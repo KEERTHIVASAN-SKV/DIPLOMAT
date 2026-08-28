@@ -1,0 +1,26 @@
+{
+  "claim_id": "CLM-1002",
+  "policy_id": "POL-1001",
+  "incident_date": "2026-08-22",
+  "incident_type": "ACCIDENT",
+  "incident_description": "Collision at highway. Significant front-end damage.",
+  "claimant_name": "Priya Nair",
+  "estimated_damage": {
+    "amount": 100000,
+    "currency": "INR"
+  },
+  "supporting_documents": ["CLAIM_FORM_002", "PHOTO_003"],
+  "__assessment__": {
+    "damage_items": [
+      {"part": "bumper", "amount": 30000, "description": "Bumper"},
+      {"part": "headlight", "amount": 20000, "description": "Headlight"},
+      {"part": "bonnet", "amount": 30000, "description": "Bonnet"},
+      {"part": "labor", "amount": 20000, "description": "Labor"}
+    ],
+    "assessed_amount": 150000,
+    "currency": "INR",
+    "source": "ASSESSMENT_REPORT",
+    "evidence_ids": ["PHOTO_003"],
+    "notes": "NOTE: assessed_amount is intentionally wrong (sum=100000, reported=150000)"
+  }
+}

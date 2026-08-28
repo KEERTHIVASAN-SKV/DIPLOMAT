@@ -1,0 +1,26 @@
+{
+  "contract_id": "POLICY_TO_ASSESSMENT_V1",
+  "source": "PolicyAgent",
+  "target": "AssessmentAgent",
+  "required_fields": {
+    "policy_id": "string",
+    "policy_status": "enum:ACTIVE,EXPIRED,CANCELLED,SUSPENDED,LAPSED",
+    "coverage_type": "string",
+    "coverage_limit": "number:positive",
+    "deductible": "number:non-negative",
+    "copay": "number:percentage",
+    "currency": "currency:ISO-4217",
+    "policy_start": "date:YYYY-MM-DD",
+    "policy_expiry": "date:YYYY-MM-DD",
+    "source": "string"
+  },
+  "rules": [
+    "policy_status must be ACTIVE",
+    "currency must be INR",
+    "coverage_limit must be > 0",
+    "deductible must be >= 0",
+    "copay must be between 0 and 100",
+    "policy_expiry must be >= incident_date"
+  ],
+  "semantic_requirements": {}
+}

@@ -1,0 +1,24 @@
+{
+  "claim_id": "CLM-1003",
+  "policy_id": "POL-1003",
+  "incident_date": "2026-08-20",
+  "incident_type": "ACCIDENT",
+  "incident_description": "Vehicle hit a pothole. Tyre and rim damaged.",
+  "claimant_name": "Vikram Reddy",
+  "estimated_damage": {
+    "amount": 25000,
+    "currency": "INR"
+  },
+  "supporting_documents": ["CLAIM_FORM_003"],
+  "__assessment__": {
+    "damage_items": [
+      {"part": "tyre", "amount": 15000, "description": "Tyre replacement"},
+      {"part": "rim", "amount": 10000, "description": "Rim"}
+    ],
+    "assessed_amount": 25000,
+    "currency": "INR",
+    "source": "ASSESSMENT_REPORT",
+    "evidence_ids": ["DOC-003"],
+    "notes": ""
+  }
+}

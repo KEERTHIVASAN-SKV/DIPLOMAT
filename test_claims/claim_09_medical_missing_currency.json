@@ -1,0 +1,23 @@
+{
+  "claim_id": "CLM-2003",
+  "policy_id": "POL-1002",
+  "incident_date": "2026-08-14",
+  "incident_type": "HEALTH",
+  "incident_description": "Claimant underwent a medical procedure and submitted the final bill.",
+  "claimant_name": "Meera Pillai",
+  "estimated_damage": {
+    "amount": 180000,
+    "currency": "INR"
+  },
+  "supporting_documents": ["CLAIM_FORM_008", "HOSPITAL_BILL_003"],
+  "__assessment__": {
+    "damage_items": [
+      {"part": "surgery", "amount": 120000, "description": "Procedure"},
+      {"part": "room", "amount": 60000, "description": "Room charges"}
+    ],
+    "assessed_amount": 180000,
+    "source": "ASSESSMENT_REPORT",
+    "evidence_ids": ["HOSPITAL_BILL_003"],
+    "notes": "NOTE: currency intentionally removed"
+  }
+}

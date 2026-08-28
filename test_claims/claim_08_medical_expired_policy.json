@@ -1,0 +1,25 @@
+{
+  "claim_id": "CLM-2002",
+  "policy_id": "POL-1003",
+  "incident_date": "2026-08-20",
+  "incident_type": "HEALTH",
+  "incident_description": "Hospitalized after policy expiry; treatment was not covered.",
+  "claimant_name": "Vikram Reddy",
+  "estimated_damage": {
+    "amount": 90000,
+    "currency": "INR"
+  },
+  "supporting_documents": ["CLAIM_FORM_007", "HOSPITAL_BILL_002"],
+  "__assessment__": {
+    "damage_items": [
+      {"part": "ward", "amount": 30000, "description": "Ward charges"},
+      {"part": "medicines", "amount": 20000, "description": "Medicines"},
+      {"part": "lab", "amount": 40000, "description": "Laboratory tests"}
+    ],
+    "assessed_amount": 90000,
+    "currency": "INR",
+    "source": "ASSESSMENT_REPORT",
+    "evidence_ids": ["HOSPITAL_BILL_002"],
+    "notes": "Valid treatment but policy expired before incident"
+  }
+}

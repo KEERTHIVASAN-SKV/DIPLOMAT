@@ -6,9 +6,12 @@ def _get_nested(data: dict, dotted_key: str):
     keys = dotted_key.split(".")
     val = data
     for k in keys:
-        if not isinstance(val, dict) or k not in val:
+        if not isinstance(val, dict):
             return None
-    return val[k]
+        val = val.get(k)
+        if val is None:
+            return None
+    return val
 
 
 class FieldValidator:

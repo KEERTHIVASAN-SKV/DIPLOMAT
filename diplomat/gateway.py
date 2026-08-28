@@ -17,6 +17,7 @@ from diplomat.validators.semantic_validator import SemanticValidator
 from diplomat.validators.consistency_validator import ConsistencyValidator
 from diplomat.validators.evidence_validator import EvidenceValidator
 from diplomat.validators.financial_validator import FinancialValidator
+from diplomat.validators.rule_validator import RuleValidator
 import config
 
 
@@ -38,6 +39,7 @@ class DiplomatGateway:
             ("Check 1 — Required Fields",      FieldValidator()),
             ("Check 2 — Data Types",            TypeValidator()),
             ("Check 3 — Formats",               FormatValidator()),
+            ("Check X — Contract Rules",        RuleValidator()),
             ("Check 4 — Semantic Meaning",      SemanticValidator()),
             ("Check 5 — Cross-Agent Consistency", ConsistencyValidator()),
             ("Check 6 — Evidence",              EvidenceValidator()),

@@ -5,6 +5,16 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import config
+from pydantic import ValidationError
+
+
+AGENT_MODEL_MAP = {
+    "ClaimAgent": "models.claim_models.ClaimOutput",
+    "PolicyAgent": "models.policy_models.PolicyOutput",
+    "AssessmentAgent": "models.assessment_models.AssessmentOutput",
+    "FraudAgent": "models.fraud_models.FraudOutput",
+    "SettlementAgent": "models.settlement_models.SettlementOutput",
+}
 
 
 class BaseAgent(ABC):
@@ -47,4 +57,18 @@ class BaseAgent(ABC):
                 return json.loads(response.text)
             except Exception as e:
                 print(f"[{self.name}] LLM call failed: {e}. Using mock fallback.")
-        return self.mock_process(input_data)
+        out = self.mock_process(input_data)
+        # Validate output against pydantic models where available
+        model_path = AGENT_MODEL_MAP.get(self.name)
+        if model_path:
+            try:
+                module_path, class_name = model_path.rsplit('.', 1)
+                mod = __import__(module_path, fromlist=[class_name])
+                ModelClass = getattr(mod, class_name)
+                validated = ModelClass(**out)
+                return validated.model_dump() if hasattr(validated, 'model_dump') else validated.dict()
+            except ValidationError as ve:
+                print(f"[{self.name}] Output validation failed: {ve}. Returning raw output.")
+            except Exception as e:
+                print(f"[{self.name}] Unexpected error during output validation: {e}")
+        return out

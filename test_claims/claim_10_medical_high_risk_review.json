@@ -1,0 +1,33 @@
+{
+  "claim_id": "CLM-2004",
+  "policy_id": "POL-1002",
+  "incident_date": "2026-08-22",
+  "incident_type": "HEALTH",
+  "incident_description": "Multiple surgical interventions and recent repeat claims reported by the same patient.",
+  "claimant_name": "Sunita Iyer",
+  "estimated_damage": {
+    "amount": 300000,
+    "currency": "INR"
+  },
+  "supporting_documents": ["CLAIM_FORM_009", "HOSPITAL_BILL_004", "CONSENT_FORM_001"],
+  "__assessment__": {
+    "damage_items": [
+      {"part": "surgery", "amount": 150000, "description": "Procedure"},
+      {"part": "ICU", "amount": 100000, "description": "ICU charges"},
+      {"part": "ward", "amount": 50000, "description": "Ward charges"}
+    ],
+    "assessed_amount": 300000,
+    "currency": "INR",
+    "source": "ASSESSMENT_REPORT",
+    "evidence_ids": ["HOSPITAL_BILL_004", "CONSENT_FORM_001"],
+    "notes": "Repeated high-value claim with prior claims" 
+  },
+  "__fraud__": {
+    "risk_level": "HIGH",
+    "risk_score": 0.85,
+    "reasons": ["multiple_recent_claims", "claim_frequency_anomaly"],
+    "evidence_ids": ["CLM-0091", "CLM-0102"],
+    "recommendation": "HUMAN_REVIEW",
+    "checked_against": ["CLM-0091", "CLM-0102"]
+  }
+}

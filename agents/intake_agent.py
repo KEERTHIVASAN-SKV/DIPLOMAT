@@ -57,8 +57,8 @@ class IntakeAgent:
         room_rent_total_value = bill_doc.get("room_rent_total", 0)
         
         if inject_fault == "room_rent_misread":
-            room_rent_per_day_value = 1500
-            room_rent_total_value = 4500
+            room_rent_per_day_value = 9999
+            room_rent_total_value = 29997
         
         room_rent_per_day = {
             "value": room_rent_per_day_value,

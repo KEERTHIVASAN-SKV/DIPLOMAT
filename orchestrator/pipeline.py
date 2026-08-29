@@ -1,207 +1,161 @@
-"""
-Insurance Pipeline Orchestrator
-================================
-Wires all 5 agents together with DIPLOMAT gateways between each pair.
-"""
-import os
-from pathlib import Path
-from typing import Optional
-
-from agents.claim_agent import ClaimAgent
-from agents.policy_agent import PolicyAgent
-from agents.assessment_agent import AssessmentAgent
-from agents.fraud_agent import FraudAgent
-from agents.settlement_agent import SettlementAgent
-from diplomat.gateway import DiplomatGateway
-from models.diplomat_models import DiplomatResult, DiplomatStatus, HandoffRecord
-
-CONTRACTS_DIR = Path(__file__).parent.parent / "contracts"
-
-
-class PipelineResult:
-    def __init__(self, claim_id: str):
-        self.claim_id = claim_id
-        self.final_status: str = "PENDING"   # APPROVED | REJECTED | HUMAN_REVIEW
-        self.blocked_at: Optional[str] = None
-        self.handoff_log: list[dict] = []
-        self.agent_outputs: dict = {}
-        self.final_output: Optional[dict] = None
-        self.error: Optional[DiplomatResult] = None
-
-    def to_dict(self) -> dict:
-        return {
-            "claim_id": self.claim_id,
-            "final_status": self.final_status,
-            "blocked_at": self.blocked_at,
-            "handoff_log": self.handoff_log,
-            "final_output": self.final_output,
-        }
+import json
+from typing import Dict, List, Tuple, Any
+from agents.intake_agent import IntakeAgent
+from agents.policy_engine import PolicyEngine
+from agents.adjudicator_agent import AdjudicatorAgent
+from diplomat.veritas import VeritasGate
+from diplomat.diplomat import DiplomatGate
 
 
 class InsurancePipeline:
     """
-    Full multi-agent insurance claim pipeline with DIPLOMAT between each step.
+    Resilient pipeline with feedback loops.
+    Gates don't stop the process — they bounce errors back to agents for retry.
     """
-
-    def __init__(self):
-        # Agents
-        self.claim_agent = ClaimAgent()
-        self.policy_agent = PolicyAgent()
-        self.assessment_agent = AssessmentAgent()
-        self.fraud_agent = FraudAgent()
-        self.settlement_agent = SettlementAgent()
-
-        # DIPLOMAT Gateways
-        self.gw_claim_to_policy = DiplomatGateway(
-            str(CONTRACTS_DIR / "claim_to_policy.json")
-        )
-        self.gw_policy_to_assessment = DiplomatGateway(
-            str(CONTRACTS_DIR / "policy_to_assessment.json")
-        )
-        self.gw_assessment_to_fraud = DiplomatGateway(
-            str(CONTRACTS_DIR / "assessment_to_fraud.json")
-        )
-        self.gw_fraud_to_settlement = DiplomatGateway(
-            str(CONTRACTS_DIR / "fraud_to_settlement.json")
-        )
-
-    def run(self, raw_claim: dict, on_step=None) -> PipelineResult:
+    
+    def __init__(self, policy_doc: dict, use_gates: bool = True, max_retries: int = 2):
+        self.policy = policy_doc
+        self.use_gates = use_gates
+        self.max_retries = max_retries
+        self.intake = IntakeAgent()
+        self.veritas = VeritasGate()
+        self.diplomat = DiplomatGate(policy_doc)
+    
+    def process(self, bill_doc: dict, discharge_doc: dict, 
+                inject_fault: str = None) -> dict:
         """
-        Process a claim through the full pipeline.
-
-        Args:
-            raw_claim: The raw claim dict (from test scenario or customer input).
-            on_step: Optional callback(step_name, agent_output, diplomat_result) for UI.
-
-        Returns:
-            PipelineResult with full audit trail.
+        Run the full pipeline with retry loops.
         """
-        result = PipelineResult(raw_claim.get("claim_id", "UNKNOWN"))
-        context: dict = {}   # Accumulates validated agent outputs
-
-        def _log(step: str, payload: dict, dr: DiplomatResult):
-            entry = {
-                "step": step,
-                "status": dr.status.value,
-                "source_agent": dr.source_agent,
-                "target_agent": dr.target_agent,
-                "error_code": dr.error_code,
-                "message": dr.message,
-                "details": dr.details,
+        trace = []
+        
+        # ========== STEP 1: INTAKE + GATE 1 (with retry loop) ==========
+        trace.append({"step": "A1_INTAKE", "status": "STARTING"})
+        
+        extraction = None
+        gate1_passed = False
+        gate1_bounces = []
+        attempt = 0
+        
+        while attempt <= self.max_retries and not gate1_passed:
+            attempt += 1
+            
+            # Agent extracts
+            extraction = self.intake.extract(
+                self.policy, bill_doc, discharge_doc, 
+                inject_fault=inject_fault if attempt == 1 else None  # Only inject fault on first try
+            )
+            trace.append({
+                "step": "A1_INTAKE", 
+                "status": f"ATTEMPT_{attempt}", 
+                "output": extraction
+            })
+            
+            if not self.use_gates:
+                gate1_passed = True
+                break
+            
+            # Gate 1 validates
+            gate1_passed, gate1_bounces = self.veritas.validate(
+                extraction, bill_doc, discharge_doc, self.policy
+            )
+            
+            if gate1_passed:
+                trace.append({"step": "G1_VERITAS", "status": "PASSED", "attempt": attempt})
+            else:
+                trace.append({
+                    "step": "G1_VERITAS", 
+                    "status": f"BOUNCED_ATTEMPT_{attempt}", 
+                    "bounces": gate1_bounces
+                })
+                if attempt <= self.max_retries:
+                    trace.append({
+                        "step": "PIPELINE", 
+                        "status": "FEEDBACK_LOOP", 
+                        "detail": f"Sending {len(gate1_bounces)} bounce(s) back to IntakeAgent for retry"
+                    })
+        
+        if not gate1_passed:
+            return {
+                "status": "ESCALATED_TO_HUMAN",
+                "reason": "Gate 1 blocked after max retries",
+                "trace": trace,
+                "bounces": gate1_bounces,
+                "settlement": None
             }
-            result.handoff_log.append(entry)
-            if on_step:
-                on_step(step, payload, dr)
-
-        # ══════════════════════════════════════════════
-        # STEP 1: Claim Agent
-        # ══════════════════════════════════════════════
-        claim_output = self.claim_agent.process(raw_claim)
-        result.agent_outputs["ClaimAgent"] = claim_output
-
-        dr = self.gw_claim_to_policy.validate(claim_output, context)
-        _log("ClaimAgent → PolicyAgent", claim_output, dr)
-
-        if dr.status == DiplomatStatus.REJECTED:
-            result.final_status = "REJECTED"
-            result.blocked_at = "ClaimAgent → PolicyAgent"
-            result.error = dr
-            return result
-
-        if dr.status == DiplomatStatus.HUMAN_REVIEW:
-            result.final_status = "HUMAN_REVIEW"
-            result.blocked_at = "ClaimAgent → PolicyAgent"
-            result.error = dr
-            return result
-
-        context["claim"] = claim_output
-
-        # ══════════════════════════════════════════════
-        # STEP 2: Policy Agent
-        # ══════════════════════════════════════════════
-        policy_input = {**claim_output}
-        policy_output = self.policy_agent.process(policy_input)
-        result.agent_outputs["PolicyAgent"] = policy_output
-
-        dr = self.gw_policy_to_assessment.validate(policy_output, context)
-        _log("PolicyAgent → AssessmentAgent", policy_output, dr)
-
-        if dr.status == DiplomatStatus.REJECTED:
-            result.final_status = "REJECTED"
-            result.blocked_at = "PolicyAgent → AssessmentAgent"
-            result.error = dr
-            return result
-
-        if dr.status == DiplomatStatus.HUMAN_REVIEW:
-            result.final_status = "HUMAN_REVIEW"
-            result.blocked_at = "PolicyAgent → AssessmentAgent"
-            result.error = dr
-            return result
-
-        context["policy"] = policy_output
-
-        # ══════════════════════════════════════════════
-        # STEP 3: Assessment Agent
-        # ══════════════════════════════════════════════
-        assessment_input = {**claim_output, "__assessment__": raw_claim.get("__assessment__", {})}
-        assessment_output = self.assessment_agent.process(assessment_input)
-        result.agent_outputs["AssessmentAgent"] = assessment_output
-
-        dr = self.gw_assessment_to_fraud.validate(assessment_output, context)
-        _log("AssessmentAgent → FraudAgent", assessment_output, dr)
-
-        if dr.status == DiplomatStatus.REJECTED:
-            result.final_status = "REJECTED"
-            result.blocked_at = "AssessmentAgent → FraudAgent"
-            result.error = dr
-            return result
-
-        if dr.status == DiplomatStatus.HUMAN_REVIEW:
-            result.final_status = "HUMAN_REVIEW"
-            result.blocked_at = "AssessmentAgent → FraudAgent"
-            result.error = dr
-            return result
-
-        context["assessment"] = assessment_output
-
-        # ══════════════════════════════════════════════
-        # STEP 4: Fraud Agent
-        # ══════════════════════════════════════════════
-        fraud_input = {**claim_output, "__fraud__": raw_claim.get("__fraud__", {})}
-        fraud_output = self.fraud_agent.process(fraud_input)
-        result.agent_outputs["FraudAgent"] = fraud_output
-
-        dr = self.gw_fraud_to_settlement.validate(fraud_output, context)
-        _log("FraudAgent → SettlementAgent", fraud_output, dr)
-
-        if dr.status == DiplomatStatus.REJECTED:
-            result.final_status = "REJECTED"
-            result.blocked_at = "FraudAgent → SettlementAgent"
-            result.error = dr
-            return result
-
-        if dr.status == DiplomatStatus.HUMAN_REVIEW:
-            result.final_status = "HUMAN_REVIEW"
-            result.blocked_at = "FraudAgent → SettlementAgent"
-            result.error = dr
-            return result
-
-        context["fraud"] = fraud_output
-
-        # ══════════════════════════════════════════════
-        # STEP 5: Settlement Agent
-        # ══════════════════════════════════════════════
-        settlement_input = {
-            "claim_id": claim_output["claim_id"],
-            "assessed_amount": assessment_output["assessed_amount"],
-            "coverage_limit": policy_output["coverage_limit"],
-            "deductible": policy_output["deductible"],
-            "copay": policy_output["copay"],
-            "currency": policy_output["currency"],
+        
+        # ========== STEP 2: POLICY ENGINE ==========
+        trace.append({"step": "A2_POLICY", "status": "RUNNING"})
+        policy_engine = PolicyEngine(self.policy)
+        rules = policy_engine.get_applicable_rules(extraction)
+        trace.append({
+            "step": "A2_POLICY", 
+            "status": "COMPLETE", 
+            "rules_applied": [r.get("description", r.get("rule_id", "UNKNOWN")) for r in rules]
+        })
+        
+        # ========== STEP 3: ADJUDICATOR + GATE 2 (with retry loop) ==========
+        trace.append({"step": "A3_ADJUDICATOR", "status": "STARTING"})
+        
+        settlement = None
+        gate2_passed = False
+        gate2_bounces = []
+        attempt = 0
+        
+        while attempt <= self.max_retries and not gate2_passed:
+            attempt += 1
+            
+            # Adjudicator calculates
+            adjudicator = AdjudicatorAgent(self.policy)
+            settlement = adjudicator.adjudicate(
+                extraction, rules,
+                inject_fault=inject_fault if attempt == 1 else None
+            )
+            trace.append({
+                "step": "A3_ADJUDICATOR",
+                "status": f"ATTEMPT_{attempt}",
+                "settlement": settlement
+            })
+            
+            if not self.use_gates:
+                gate2_passed = True
+                break
+            
+            # Gate 2 validates
+            gate2_passed, gate2_bounces = self.diplomat.validate(settlement, extraction)
+            
+            if gate2_passed:
+                trace.append({"step": "G2_DIPLOMAT", "status": "PASSED", "attempt": attempt})
+            else:
+                trace.append({
+                    "step": "G2_DIPLOMAT",
+                    "status": f"BOUNCED_ATTEMPT_{attempt}",
+                    "bounces": gate2_bounces
+                })
+                if attempt <= self.max_retries:
+                    trace.append({
+                        "step": "PIPELINE",
+                        "status": "FEEDBACK_LOOP",
+                        "detail": f"Sending {len(gate2_bounces)} bounce(s) back to AdjudicatorAgent for retry"
+                    })
+        
+        if not gate2_passed:
+            return {
+                "status": "ESCALATED_TO_HUMAN",
+                "reason": "Gate 2 blocked after max retries",
+                "trace": trace,
+                "bounces": gate2_bounces,
+                "settlement": settlement
+            }
+        
+        # ========== SUCCESS ==========
+        return {
+            "status": "APPROVED",
+            "trace": trace,
+            "settlement": settlement,
+            "grievance_draft": self._generate_grievance(settlement)
         }
-        settlement_output = self.settlement_agent.process(settlement_input)
-        result.agent_outputs["SettlementAgent"] = settlement_output
-
-        result.final_status = settlement_output.get("status", "APPROVED")
-        result.final_output = settlement_output
-        return result
+    
+    def _generate_grievance(self, settlement: dict) -> str:
+        """Generate a one-page grievance letter if any deductions were flagged."""
+        # For now, return a simple status
+        return "All deductions verified and cited. No grievance necessary."

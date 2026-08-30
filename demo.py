@@ -2,6 +2,8 @@ import json
 import sys
 import os
 
+sys.stdout.reconfigure(encoding='utf-8')
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from orchestrator.pipeline import InsurancePipeline
@@ -108,7 +110,7 @@ def main():
 
     run_scenario("SCENARIO 1: Gate 1 — Intake misreads room rent (room_rent_misread)", "room_rent_misread")
     run_scenario("SCENARIO 2: Gate 2 — Adjudicator missing citation (missing_citation)", "missing_citation")
-    run_scenario("SCENARIO 3: Clean claim — no fault injection, first-try APPROVED", None)
+    run_scenario("SCENARIO 3: Clean claim — no fault injection", None)
 
     print("\n" + "=" * 70)
     print("Demo Complete")

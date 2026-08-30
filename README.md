@@ -14,13 +14,14 @@ pip install -r requirements.txt
 
 # 2. Copy and configure environment
 cp .env.example .env
-# (Optional) Add your GOOGLE_API_KEY for live LLM mode.
-# Default is MOCK_MODE=true — works without any API key.
+# Add your GOOGLE_API_KEY for live LLM mode
+# Set GEMINI_MODEL=gemini-3.6-flash (verified working)
+# Set MOCK_MODE=false to use real Gemini API
 
-# 3. Run all 6 demo claims (CLI)
-python main.py
+# 3. Run the medical claims demo (shows LLM extraction + validation + retry loops)
+python demo.py
 
-# 4. Run the visual dashboard
+# 4. (Optional) Run the visual dashboard
 streamlit run dashboard/app.py
 ```
 
@@ -28,36 +29,69 @@ streamlit run dashboard/app.py
 
 ## Demo Scenarios
 
-| # | Claim | Expected | Blocked By |
-|---|-------|----------|------------|
-| 1 | Valid motor claim | ✅ APPROVED | — |
-| 2 | Amount mismatch (₹1,00,000 sum reported as ₹1,50,000) | 🚨 BLOCKED | Check 7 — Financial Rules |
-| 3 | Expired policy (incident after expiry) | 🚨 BLOCKED | Check 7 — Financial Rules |
-| 4 | Missing field (currency omitted) | 🚨 BLOCKED | Check 1 — Required Fields |
-| 5 | Currency conflict (Assessment=USD, Policy=INR) | 🚨 BLOCKED | Check 5 — Consistency |
-| 6 | High-risk claim (fraud score 0.85) | 🤚 HUMAN REVIEW | Escalation Rule |
+The demo processes health insurance claims through a multi-agent pipeline with validation gates:
+
+**Pipeline Flow:**
+```
+Medical Documents (bill + discharge summary + policy)
+    ↓
+IntakeAgent (LLM extracts structured data)
+    ↓
+🛂 Gate 1: VERITAS (validates extraction integrity)
+    ↓ (retry loop with feedback if bounced)
+PolicyEngine (determines applicable rules)
+    ↓
+AdjudicatorAgent (LLM calculates deductions)
+    ↓
+🛂 Gate 2: DIPLOMAT (validates calculations)
+    ↓ (retry loop with feedback if bounced)
+Final Settlement or Human Review
+```
+
+**Scenarios:**
+1. **Clean Extraction** — LLM may make mistakes (citation errors, calculation errors) that trigger retry loops
+2. **Room Rent Misread** — Simulated OCR error tests Gate 1 bounce + feedback correction
+3. **Missing Citation** — Simulated calculation error tests Gate 2 bounce + feedback correction
+
+**Expected Outcomes:**
+- ✅ **APPROVED** — All gates pass, settlement calculated
+- 🚨 **ESCALATED_TO_HUMAN** — LLM fails after max retries with feedback
+- 🤚 **HUMAN REVIEW** — High-value or high-risk claims
 
 ---
 
 ## Architecture
 
 ```
-Customer
+Medical Documents (Bill, Discharge Summary, Policy)
     ↓
-Claim Agent  →  🛂 DIPLOMAT  →  Policy Agent  →  🛂 DIPLOMAT  →
-Assessment Agent  →  🛂 DIPLOMAT  →  Fraud Agent  →  🛂 DIPLOMAT  →
-Settlement Agent  →  Human Review  →  PAYOUT
+IntakeAgent (LLM) → 🛂 Gate 1: VERITAS → (retry with feedback if bounced)
+    ↓
+PolicyEngine (deterministic rule matching)
+    ↓
+AdjudicatorAgent (LLM) → 🛂 Gate 2: DIPLOMAT → (retry with feedback if bounced)
+    ↓
+Settlement / Human Review
 ```
 
-## DIPLOMAT's 7 Checks
+**Key Innovation:** When an LLM agent produces invalid output, the gate doesn't just block it — it sends structured feedback explaining exactly what failed, and the agent retries with that feedback incorporated into the prompt. This creates a self-correcting loop.
 
-1. **Required Fields** — all mandatory fields must be present
-2. **Data Types** — types must match the contract specification
-3. **Formats** — dates (YYYY-MM-DD), enums, ISO-4217 currency codes
-4. **Semantic Meaning** — amounts must carry currency and source context
-5. **Cross-Agent Consistency** — currency/claim_id/policy_id must not conflict across agents
-6. **Evidence** — HIGH/MEDIUM risk decisions must have evidence_ids and reasons
-7. **Financial Rules** — payout ≤ limit, dates valid, amounts match breakdowns
+---
+
+## DIPLOMAT's Validation Checks
+
+### Gate 1: VERITAS (Input Verification)
+- **C1_BILL_INTEGRITY** — line items must sum to bill total
+- **C2_CROSS_DOC_DATE** — dates must match across documents
+- **C2_CROSS_DOC_NAME** — patient names must match across documents
+- **C3_SOURCE_CITATION** — extracted values must appear verbatim in source citations
+- **C6_POLICY_LINK** — policy IDs must match
+
+### Gate 2: DIPLOMAT (Calculation Verification)
+- **C4_CITATION_RULE** — every deduction must cite a valid policy clause
+- **C5_RECOMPUTE_RULE** — independently recompute each deduction to verify LLM math
+- **C6_IDENTITY** — payable = bill_total - total_deductions (arithmetic check)
+- **C7_PED_LINKAGE** — pre-existing disease deductions must have evidence
 
 ---
 
@@ -65,23 +99,30 @@ Settlement Agent  →  Human Review  →  PAYOUT
 
 ```
 diplomat/
-├── agents/            # 5 insurance AI agents
-├── contracts/         # Machine-readable handoff contracts (JSON)
-├── diplomat/          # DIPLOMAT gateway + 7 validators
-├── models/            # Pydantic data models
-├── orchestrator/      # Pipeline wiring all agents + DIPLOMAT
-├── test_claims/       # 6 demo scenarios
-├── dashboard/         # Streamlit visual demo
-└── main.py            # CLI runner
+├── agents/               # AI agents (IntakeAgent, AdjudicatorAgent, PolicyEngine)
+├── diplomat/             # Validation gates (Veritas, Diplomat) + validators
+├── models/               # Pydantic data models
+├── orchestrator/         # Pipeline with retry loops + feedback
+├── demo_data/            # Medical claim documents (bill, discharge, policy)
+├── demo.py               # Main demo runner (health insurance pipeline)
+├── test_*.py             # Verification scripts
+└── dashboard/            # Streamlit visual demo
+
+# Legacy/Prototypes (not used in main demo):
+├── contracts/            # Earlier multi-agent handoff contracts
+├── test_claims/          # Motor insurance scenarios (different pipeline)
+└── main.py               # Earlier CLI runner (not compatible with current pipeline)
 ```
 
 ## Environment Variables
 
 | Variable | Default | Description |
 |---|---|---|
-| `GOOGLE_API_KEY` | — | Gemini API key (optional) |
-| `GEMINI_MODEL` | `gemini-1.5-flash` | Gemini model to use |
-| `MOCK_MODE` | `true` | Set `false` to use live Gemini API |
+| `GOOGLE_API_KEY` | — | Gemini API key (required for LLM mode) |
+| `GEMINI_MODEL` | `gemini-3.6-flash` | Gemini model (verified working) |
+| `MOCK_MODE` | `true` | Set `false` to use real Gemini API |
+
+**Note:** Older models like `gemini-1.5-flash` and `gemini-2.5-flash` are deprecated. Use `gemini-3.6-flash` or `gemini-3.7-flash`.
 
 ---
 

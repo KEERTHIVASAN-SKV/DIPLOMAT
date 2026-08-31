@@ -2,13 +2,13 @@
 DIPLOMAT Dashboard
 ==================
 Streamlit-based visual demo of the DIPLOMAT insurance pipeline.
+Real, working pipeline using InsurancePipeline.process(bill, discharge, inject_fault=...).
 
 Run with:
     streamlit run dashboard/app.py
 """
 import json
 import sys
-import time
 from pathlib import Path
 
 import streamlit as st
@@ -18,16 +18,19 @@ ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT))
 
 from orchestrator.pipeline import InsurancePipeline
-from models.diplomat_models import DiplomatStatus
 
-CLAIMS_DIR = ROOT / "test_claims"
+
+def load_json(path: str) -> dict:
+    with open(path, encoding='utf-8') as f:
+        return json.load(f)
+
 
 # ── Page Config ──────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="DIPLOMAT — Insurance AI Gateway",
     page_icon="🛂",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
@@ -42,120 +45,105 @@ st.markdown("""
 
 .agent-box {
     background: #1e2a3a; border: 1px solid #2d4059; border-radius: 8px;
-    padding: 1rem; margin: 0.3rem 0; text-align: center;
+    padding: 1.2rem 0.8rem; margin: 0.2rem; text-align: center; 
+    display: inline-block; min-width: 140px;
 }
-.agent-box .agent-name { color: #a8dadc; font-weight: bold; font-size: 1rem; }
+.agent-box .agent-name { color: #a8dadc; font-weight: bold; font-size: 0.9rem; }
+.agent-box .agent-method { color: #7a9fbb; font-size: 0.7rem; margin-top: 0.3rem; }
 
-.diplomat-gate-pass {
-    background: #0d2b0d; border: 1px solid #27ae60; border-radius: 6px;
-    padding: 0.5rem; margin: 0.2rem 0; text-align: center; color: #27ae60;
-    font-size: 0.85rem;
+.gate-box {
+    background: #1e2a3a; border: 2px solid #555; border-radius: 6px;
+    padding: 0.6rem 0.4rem; margin: 0.2rem; text-align: center;
+    display: inline-block; min-width: 100px;
 }
-.diplomat-gate-fail {
-    background: #2b0d0d; border: 1px solid #e74c3c; border-radius: 6px;
-    padding: 0.5rem; margin: 0.2rem 0; text-align: center; color: #e74c3c;
-    font-size: 0.85rem;
+
+.gate-pass {
+    border-color: #27ae60; background: #0d2b0d;
+    color: #27ae60; font-weight: bold; font-size: 0.85rem;
 }
-.diplomat-gate-review {
-    background: #2b2200; border: 1px solid #f39c12; border-radius: 6px;
-    padding: 0.5rem; margin: 0.2rem 0; text-align: center; color: #f39c12;
-    font-size: 0.85rem;
+.gate-bounce {
+    border-color: #e94560; background: #2b0d0d;
+    color: #e94560; font-weight: bold; font-size: 0.85rem;
 }
-.diplomat-gate-pending {
-    background: #1a1a2e; border: 1px dashed #555; border-radius: 6px;
-    padding: 0.5rem; margin: 0.2rem 0; text-align: center; color: #555;
-    font-size: 0.85rem;
+.gate-attempt {
+    color: #f39c12; font-size: 0.75rem;
 }
-.error-card {
-    background: #2b0d0d; border: 2px solid #e74c3c; border-radius: 8px; padding: 1rem;
+
+.bounce-panel {
+    background: #2b0d0d; border-left: 4px solid #e94560; padding: 0.8rem;
+    margin: 0.5rem 0; border-radius: 4px; font-size: 0.9rem;
 }
-.review-card {
-    background: #2b2200; border: 2px solid #f39c12; border-radius: 8px; padding: 1rem;
+.bounce-check {
+    color: #e94560; font-weight: bold;
+    margin-bottom: 0.3rem;
 }
+.bounce-detail {
+    color: #ccc; margin-left: 1rem; font-size: 0.85rem;
+    font-family: monospace;
+}
+
 .success-card {
-    background: #0d2b0d; border: 2px solid #27ae60; border-radius: 8px; padding: 1rem;
+    background: #0d2b0d; border: 2px solid #27ae60; border-radius: 8px; 
+    padding: 1.5rem; margin: 1rem 0;
 }
-.metric-box {
-    background: #1e2a3a; border-radius: 8px; padding: 1rem; text-align: center;
-    border: 1px solid #2d4059;
+.success-card h3 { color: #27ae60; margin: 0 0 0.5rem 0; }
+.success-card .deduction { 
+    display: flex; justify-content: space-between; margin: 0.3rem 0;
+    color: #ccc; font-size: 0.95rem;
+}
+.success-card .total-row {
+    border-top: 1px solid #27ae60; margin-top: 0.5rem; padding-top: 0.5rem;
+    font-weight: bold;
+}
+
+.escalate-card {
+    background: #2b0d0d; border: 2px solid #e94560; border-radius: 8px; 
+    padding: 1.5rem; margin: 1rem 0;
+}
+.escalate-card h3 { color: #e94560; margin: 0 0 0.5rem 0; }
+
+.trace-flow {
+    background: #1a1a2e; border: 1px solid #2d4059; border-radius: 8px;
+    padding: 1.2rem; margin: 1rem 0; text-align: center;
+    overflow-x: auto;
 }
 </style>
 """, unsafe_allow_html=True)
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-@st.cache_resource
-def get_pipeline():
-    return InsurancePipeline()
+# ── Scenario definitions ──────────────────────────────────────────────────────
+SCENARIOS = [
+    {
+        "name": "SCENARIO 1: Gate 1 — Intake misreads room rent",
+        "description": "Tests Veritas (Gate 1) bounce + retry loop",
+        "inject_fault": "room_rent_misread",
+    },
+    {
+        "name": "SCENARIO 2: Gate 2 — Adjudicator missing citation",
+        "description": "Tests Diplomat (Gate 2) bounce + retry loop",
+        "inject_fault": "missing_citation",
+    },
+    {
+        "name": "SCENARIO 3: Clean claim — no fault injection",
+        "description": "Tests clean path through all gates",
+        "inject_fault": None,
+    },
+    {
+        "name": "CLEAN RUN (manual override)",
+        "description": "No fault injection, fresh run",
+        "inject_fault": None,
+    },
+]
 
 
-def load_claim_files():
-    return sorted(CLAIMS_DIR.glob("claim_0*.json"))
+# ── Load demo data ────────────────────────────────────────────────────────────
+DEMO_DATA_DIR = ROOT / "demo_data"
+policy = load_json(str(DEMO_DATA_DIR / "policy.json"))
+bill = load_json(str(DEMO_DATA_DIR / "bill.json"))
+discharge = load_json(str(DEMO_DATA_DIR / "discharge_summary.json"))
 
 
-def load_claim(path: Path) -> dict:
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
-
-
-def gate_html(status: str, label: str, message: str = "") -> str:
-    if status == "PASS":
-        cls = "diplomat-gate-pass"
-        icon = "✅ CONTRACT PASS"
-    elif status == "HUMAN_REVIEW":
-        cls = "diplomat-gate-review"
-        icon = "🤚 HUMAN REVIEW"
-    elif status == "REJECTED":
-        cls = "diplomat-gate-fail"
-        icon = f"🚨 BLOCKED"
-    else:
-        cls = "diplomat-gate-pending"
-        icon = "🛂 DIPLOMAT"
-
-    msg_html = f"<br><small>{message[:80]}</small>" if message else ""
-    return f'<div class="{cls}"><b>{icon}</b>{msg_html}</div>'
-
-
-def agent_html(name: str, active: bool = True) -> str:
-    opacity = "1.0" if active else "0.35"
-    return f'<div class="agent-box" style="opacity:{opacity}"><div class="agent-name">🤖 {name}</div></div>'
-
-
-# ── Sidebar ────────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("## 🛂 DIPLOMAT")
-    st.markdown("**Fail-Closed Trust Layer**\n*for Insurance AI Agents*")
-    st.divider()
-
-    claim_files = load_claim_files()
-    claim_labels = []
-    for cf in claim_files:
-        data = load_claim(cf)
-        claim_labels.append(f"{data['claim_id']} — {data.get('claimant_name','?')}")
-
-    selected_idx = st.selectbox(
-        "Select a Demo Claim",
-        range(len(claim_labels)),
-        format_func=lambda i: claim_labels[i],
-    )
-
-    run_all = st.button("▶ Run All 6 Claims", use_container_width=True, type="secondary")
-    run_one = st.button("▶ Process This Claim", use_container_width=True, type="primary")
-
-    st.divider()
-    st.markdown("""
-**7 DIPLOMAT Checks:**
-1. Required Fields
-2. Data Types
-3. Formats
-4. Semantic Meaning
-5. Cross-Agent Consistency
-6. Evidence
-7. Financial Rules
-""")
-
-
-# ── Header ─────────────────────────────────────────────────────────────────────
+# ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("""
 <div class="diplomat-header">
   <h1>🛂 DIPLOMAT</h1>
@@ -164,188 +152,220 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ── Main Area ─────────────────────────────────────────────────────────────────
+# ── Main controls ─────────────────────────────────────────────────────────────
+col_scenario, col_button = st.columns([3, 1])
+
+with col_scenario:
+    scenario_idx = st.selectbox(
+        "Select Scenario",
+        range(len(SCENARIOS)),
+        format_func=lambda i: SCENARIOS[i]["name"],
+        label_visibility="collapsed"
+    )
+    selected_scenario = SCENARIOS[scenario_idx]
+
+with col_button:
+    run_button = st.button("▶ Run Claim", type="primary", use_container_width=True)
+
+
+# ── Initialize pipeline ───────────────────────────────────────────────────────
+@st.cache_resource
+def get_pipeline():
+    return InsurancePipeline(policy, use_gates=True, max_retries=2)
+
+
 pipeline = get_pipeline()
-selected_claim_file = claim_files[selected_idx]
-selected_claim_data = load_claim(selected_claim_file)
-
-# Show claim details
-col_info, col_flow, col_result = st.columns([2, 1.5, 2])
-
-with col_info:
-    st.markdown("### 📋 Claim Details")
-    st.json({
-        "claim_id": selected_claim_data.get("claim_id"),
-        "policy_id": selected_claim_data.get("policy_id"),
-        "claimant": selected_claim_data.get("claimant_name"),
-        "incident_type": selected_claim_data.get("incident_type"),
-        "incident_date": selected_claim_data.get("incident_date"),
-        "estimated_damage": selected_claim_data.get("estimated_damage"),
-    })
-
-with col_flow:
-    st.markdown("### 🔄 Agent Flow")
-    agents = ["Claim Agent", "Policy Agent", "Assessment Agent", "Fraud Agent", "Settlement Agent"]
-    flow_placeholder = st.empty()
-
-    def render_flow(handoff_log=None):
-        gates = {}
-        if handoff_log:
-            step_map = {
-                "ClaimAgent → PolicyAgent": 0,
-                "PolicyAgent → AssessmentAgent": 1,
-                "AssessmentAgent → FraudAgent": 2,
-                "FraudAgent → SettlementAgent": 3,
-            }
-            for entry in handoff_log:
-                idx = step_map.get(entry["step"])
-                if idx is not None:
-                    gates[idx] = (entry["status"], entry.get("error_code", ""))
-
-        html_parts = []
-        for i, agent in enumerate(agents):
-            active = True
-            if handoff_log:
-                # Agent is inactive if pipeline was blocked before it
-                blocked = any(
-                    gates.get(j, ("PASS", ""))[0] in ("REJECTED",)
-                    for j in range(i)
-                )
-                active = not blocked or i == 0
-
-            html_parts.append(agent_html(agent, active))
-            if i < len(agents) - 1:
-                gate_status, gate_msg = gates.get(i, ("PENDING", ""))
-                html_parts.append(gate_html(gate_status, f"Gate {i+1}", gate_msg))
-
-        flow_placeholder.markdown("".join(html_parts), unsafe_allow_html=True)
-
-    render_flow()
-
-with col_result:
-    st.markdown("### 🏁 Result")
-    result_placeholder = st.empty()
-    result_placeholder.info("Click **▶ Process This Claim** to run the pipeline.")
 
 
-# ── Run Single Claim ──────────────────────────────────────────────────────────
-if run_one:
-    with col_result:
-        result_placeholder.empty()
+# ── Helper: Render agent in flow ──────────────────────────────────────────────
+def render_agent(name: str, method: str = None) -> str:
+    method_html = f'<div class="agent-method">[{method}]</div>' if method else ""
+    return f'''
+<div class="agent-box">
+  <div class="agent-name">{name}</div>
+  {method_html}
+</div>
+'''
 
-    steps_collected = []
 
-    def on_step(step, payload, dr):
-        steps_collected.append({"step": step, "status": dr.status.value,
-                                 "error_code": dr.error_code, "message": dr.message,
-                                 "details": dr.details})
-        render_flow(steps_collected)
-        time.sleep(0.4)
+def render_gate(status: str, attempt: int = None) -> str:
+    if "PASS" in status:
+        css_class = "gate-box gate-pass"
+        text = f"✅ PASS"
+    elif "BOUNCE" in status:
+        css_class = "gate-box gate-bounce"
+        text = f"🔄 BOUNCE"
+    else:
+        css_class = "gate-box"
+        text = "—"
+    
+    attempt_text = f'<div class="gate-attempt">(attempt {attempt})</div>' if attempt else ""
+    return f'<div class="{css_class}">{text}{attempt_text}</div>'
 
+
+# ── Process claim ─────────────────────────────────────────────────────────────
+if run_button:
     with st.spinner("Running DIPLOMAT pipeline..."):
-        result = pipeline.run(selected_claim_data, on_step=on_step)
-
-    render_flow(result.handoff_log)
-
-    with col_result:
-        if result.final_status == "APPROVED":
-            payout = result.final_output.get("payable_amount", 0)
-            breakdown = result.final_output.get("calculation_breakdown", {})
-            result_placeholder.empty()
-            st.markdown(f"""
+        result = pipeline.process(
+            bill, 
+            discharge, 
+            inject_fault=selected_scenario["inject_fault"]
+        )
+    
+    # ── Agent flow visualization ──────────────────────────────────────────────
+    st.markdown("### 🔄 Pipeline Trace")
+    
+    flow_html = '<div class="trace-flow">'
+    
+    # Build flow from trace
+    trace_by_step = {}
+    for step_entry in result.get("trace", []):
+        step_name = step_entry.get("step")
+        if step_name not in trace_by_step:
+            trace_by_step[step_name] = []
+        trace_by_step[step_name].append(step_entry)
+    
+    # Render timeline: A1_INTAKE → G1_VERITAS → A2_POLICY → A3_ADJUDICATOR → G2_DIPLOMAT → SETTLEMENT
+    agent_flow = [
+        ("A1_INTAKE", "IntakeAgent", "llm"),
+        ("G1_VERITAS", "Veritas Gate", None),
+        ("A2_POLICY", "PolicyEngine", "deterministic"),
+        ("A3_ADJUDICATOR", "AdjudicatorAgent", "llm"),
+        ("G2_DIPLOMAT", "Diplomat Gate", None),
+    ]
+    
+    for step_name, display_name, method in agent_flow:
+        if step_name.startswith("A"):
+            # It's an agent
+            entries = trace_by_step.get(step_name, [])
+            if entries:
+                last_entry = entries[-1]
+                method_tag = None
+                if method:
+                    output = last_entry.get("output") or last_entry.get("settlement")
+                    if isinstance(output, dict):
+                        em = output.get("_extraction_method")
+                        am = output.get("_adjudication_method")
+                        if em:
+                            method_tag = em
+                        elif am:
+                            method_tag = am
+                        else:
+                            method_tag = method
+                    else:
+                        method_tag = method
+                flow_html += render_agent(display_name, method_tag)
+        else:
+            # It's a gate
+            entries = trace_by_step.get(step_name, [])
+            if entries:
+                last_entry = entries[-1]
+                status = last_entry.get("status", "PENDING")
+                attempt = last_entry.get("attempt", None)
+                flow_html += render_gate(status, attempt)
+    
+    flow_html += '</div>'
+    st.markdown(flow_html, unsafe_allow_html=True)
+    
+    # ── Bounce feedback panels ────────────────────────────────────────────────
+    bounce_steps = [s for s in result.get("trace", []) if "BOUNCE" in s.get("status", "")]
+    if bounce_steps:
+        st.markdown("### 🔴 Gate Bounces (Feedback Sent to Agent)")
+        for bounce_step in bounce_steps:
+            gate_name = bounce_step.get("step")
+            bounces = bounce_step.get("bounces", [])
+            
+            for bounce in bounces:
+                st.markdown(f"""
+<div class="bounce-panel">
+<div class="bounce-check">🚫 {bounce.get('check', 'UNKNOWN')}</div>
+<div class="bounce-detail">{bounce.get('message', '')}</div>
+""", unsafe_allow_html=True)
+                
+                if "expected" in bounce and "got" in bounce:
+                    st.markdown(f"""
+<div class="bounce-detail">
+  Expected: <b>{bounce['expected']}</b><br>
+  Got: <b>{bounce['got']}</b>
+</div>
+""", unsafe_allow_html=True)
+                
+                if "hint" in bounce:
+                    st.markdown(f"""
+<div class="bounce-detail">💡 {bounce['hint']}</div>
+</div>
+""", unsafe_allow_html=True)
+                else:
+                    st.markdown("</div>", unsafe_allow_html=True)
+    
+    # ── Result card ───────────────────────────────────────────────────────────
+    st.markdown("### 📄 Final Result")
+    
+    if result.get("status") == "APPROVED":
+        settlement = result.get("settlement", {})
+        bill_total = settlement.get("bill_total", 0)
+        total_deductions = settlement.get("total_deductions", 0)
+        payable = settlement.get("payable", 0)
+        
+        st.markdown(f"""
 <div class="success-card">
-<h3>✅ APPROVED</h3>
-<b>Payable Amount: ₹{payout:,.2f}</b>
-<hr/>
-<small>
-Eligible: ₹{breakdown.get('step1_eligible_amount', 0):,.0f}<br>
-After Deductible: ₹{breakdown.get('step2_after_deductible', 0):,.0f}<br>
-Co-pay: ₹{breakdown.get('step3_copay_amount', 0):,.0f}<br>
-<b>Final: ₹{breakdown.get('step4_final_payable', 0):,.0f}</b>
-</small>
+  <h3>✅ APPROVED</h3>
+  <div class="deduction">
+    <span>Bill Total:</span>
+    <span style="font-weight: bold;">₹{bill_total:,.2f}</span>
+  </div>
+""", unsafe_allow_html=True)
+        
+        deductions = settlement.get("deductions", [])
+        if deductions:
+            st.markdown('  <div style="border-top: 1px solid #27ae60; margin: 0.5rem 0; padding: 0.5rem 0;">', unsafe_allow_html=True)
+            for deduction in deductions:
+                desc = deduction.get("description", "Unknown")
+                amount = deduction.get("amount", 0)
+                clause_id = deduction.get("clause_id", "?")
+                st.markdown(f"""
+  <div class="deduction">
+    <span>{desc:<40} [{clause_id}]</span>
+    <span>₹{amount:,.2f}</span>
+  </div>
+""", unsafe_allow_html=True)
+            st.markdown('  </div>', unsafe_allow_html=True)
+        
+        st.markdown(f"""
+  <div class="deduction total-row">
+    <span>Total Deductions:</span>
+    <span>₹{total_deductions:,.2f}</span>
+  </div>
+  <div class="deduction total-row" style="color: #27ae60; font-size: 1.1rem;">
+    <span>PAYABLE:</span>
+    <span>₹{payable:,.2f}</span>
+  </div>
 </div>
 """, unsafe_allow_html=True)
-
-        elif result.final_status == "HUMAN_REVIEW":
-            err = result.error
-            result_placeholder.empty()
-            st.markdown(f"""
-<div class="review-card">
-<h3>🤚 HUMAN REVIEW REQUIRED</h3>
-<b>{err.error_code if err else "ESCALATED"}</b><br>
-{err.message if err else ""}
-<hr/>
-<small>Blocked at: {result.blocked_at or "Post-validation"}</small>
-</div>
+    
+    else:
+        bounces = result.get("bounces", [])
+        reason = result.get("reason", "Unknown reason")
+        
+        st.markdown(f"""
+<div class="escalate-card">
+  <h3>🚨 ESCALATED TO HUMAN REVIEW</h3>
+  <p><strong>Reason:</strong> {reason}</p>
 """, unsafe_allow_html=True)
-        else:
-            err = result.error
-            result_placeholder.empty()
-            st.markdown(f"""
-<div class="error-card">
-<h3>🚨 BLOCKED</h3>
-<b>{err.error_code if err else "UNKNOWN"}</b><br>
-{err.message if err else ""}
-<hr/>
-<small>At: {result.blocked_at}</small>
-</div>
+        
+        if bounces:
+            st.markdown("  <p><strong>Final Unresolved Issues:</strong></p>", unsafe_allow_html=True)
+            for bounce in bounces:
+                check_name = bounce.get("check", bounce.get("validator", "UNKNOWN"))
+                msg = bounce.get("message", "")
+                st.markdown(f"""
+  <div class="bounce-detail">
+    • {check_name}: {msg}
+  </div>
 """, unsafe_allow_html=True)
-            if err and err.details:
-                with st.expander("Error Details"):
-                    st.json(err.details)
-
-    # Handoff log
-    st.divider()
-    st.markdown("### 🗂️ Handoff Audit Log")
-    for entry in result.handoff_log:
-        status = entry["status"]
-        icon = "✅" if status == "PASS" else ("🤚" if status == "HUMAN_REVIEW" else "🚨")
-        color = "green" if status == "PASS" else ("orange" if status == "HUMAN_REVIEW" else "red")
-        st.markdown(f"**{icon} {entry['step']}** — :{color}[{status}]")
-        if entry.get("error_code"):
-            st.markdown(f"  - `{entry['error_code']}`: {entry['message']}")
-
-
-# ── Run All Claims ────────────────────────────────────────────────────────────
-if run_all:
-    st.divider()
-    st.markdown("## 📊 Batch Processing — All 6 Claims")
-
-    cols = st.columns(3)
-    claim_results = []
-
-    for i, cf in enumerate(claim_files):
-        raw = load_claim(cf)
-        result = pipeline.run(raw)
-        claim_results.append((cf, raw, result))
-
-    approved = sum(1 for _, _, r in claim_results if r.final_status == "APPROVED")
-    blocked = sum(1 for _, _, r in claim_results if r.final_status == "REJECTED")
-    review = sum(1 for _, _, r in claim_results if r.final_status == "HUMAN_REVIEW")
-
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        st.markdown(f'<div class="metric-box"><h2>6</h2><p>Claims Processed</p></div>', unsafe_allow_html=True)
-    with m2:
-        st.markdown(f'<div class="metric-box" style="border-color:#27ae60"><h2 style="color:#27ae60">✅ {approved}</h2><p>Approved</p></div>', unsafe_allow_html=True)
-    with m3:
-        st.markdown(f'<div class="metric-box" style="border-color:#e74c3c"><h2 style="color:#e74c3c">🚨 {blocked}</h2><p>Blocked</p></div>', unsafe_allow_html=True)
-    with m4:
-        st.markdown(f'<div class="metric-box" style="border-color:#f39c12"><h2 style="color:#f39c12">🤚 {review}</h2><p>Human Review</p></div>', unsafe_allow_html=True)
-
-    st.markdown("---")
-    for i, (cf, raw, result) in enumerate(claim_results, 1):
-        claim_id = raw.get("claim_id")
-        claimant = raw.get("claimant_name", "?")
-
-        if result.final_status == "APPROVED":
-            payout = result.final_output.get("payable_amount", 0)
-            st.markdown(f"**{i}. {claim_id}** ({claimant}) → :green[✅ APPROVED — ₹{payout:,.2f}]")
-        elif result.final_status == "HUMAN_REVIEW":
-            err = result.error
-            st.markdown(f"**{i}. {claim_id}** ({claimant}) → :orange[🤚 HUMAN REVIEW — {err.error_code if err else '?'}]")
-        else:
-            err = result.error
-            st.markdown(f"**{i}. {claim_id}** ({claimant}) → :red[🚨 BLOCKED — {err.error_code if err else '?'} @ {result.blocked_at}]")
-
-    st.success("**0 unsafe handoffs allowed through** — every blocked claim was caught by DIPLOMAT before reaching the next agent.")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+    
+    # ── Detailed trace ────────────────────────────────────────────────────────
+    with st.expander("📋 Full Trace (for debugging)"):
+        st.json(result.get("trace", []))

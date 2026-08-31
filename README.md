@@ -15,7 +15,7 @@ pip install -r requirements.txt
 # 2. Copy and configure environment
 cp .env.example .env
 # Add your GOOGLE_API_KEY for live LLM mode
-# Set GEMINI_MODEL=gemini-3.6-flash (verified working)
+# Set GEMINI_MODEL=gemini-3.5-flash-lite (confirmed working on free tier)
 # Set MOCK_MODE=false to use real Gemini API
 
 # 3. Run the medical claims demo (shows LLM extraction + validation + retry loops)
@@ -105,8 +105,9 @@ diplomat/
 ├── orchestrator/         # Pipeline with retry loops + feedback
 ├── demo_data/            # Medical claim documents (bill, discharge, policy)
 ├── demo.py               # Main demo runner (health insurance pipeline)
-├── test_*.py             # Verification scripts
-└── dashboard/            # Streamlit visual demo
+├── dashboard/            # Streamlit visual demo
+├── diagnostics/          # Debugging scripts used during development (not part of core pipeline)
+└── test_*.py             # Verification scripts
 
 # Legacy/Prototypes (not used in main demo):
 ├── contracts/            # Earlier multi-agent handoff contracts
@@ -119,10 +120,10 @@ diplomat/
 | Variable | Default | Description |
 |---|---|---|
 | `GOOGLE_API_KEY` | — | Gemini API key (required for LLM mode) |
-| `GEMINI_MODEL` | `gemini-3.6-flash` | Gemini model (verified working) |
+| `GEMINI_MODEL` | `gemini-3.5-flash-lite` | Gemini model (confirmed working on free tier) |
 | `MOCK_MODE` | `true` | Set `false` to use real Gemini API |
 
-**Note:** Older models like `gemini-1.5-flash` and `gemini-2.5-flash` are deprecated. Use `gemini-3.6-flash` or `gemini-3.7-flash`.
+**Note:** Do NOT use deprecated models like `gemini-1.5-flash`, `gemini-2.5-flash`, or `gemini-3.6-flash` — these either 404 on new accounts or hit tiny free-tier quota caps (20 requests/day). Confirmed working: `gemini-3.5-flash-lite`.
 
 ---
 

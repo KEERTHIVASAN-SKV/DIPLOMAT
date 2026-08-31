@@ -111,7 +111,7 @@ export default function DashboardPage() {
   const [nodes, setNodes] = useState<PipelineNode[]>(INITIAL_NODES)
   const [trace, setTrace] = useState<any[]>([])
   const [result, setResult] = useState<any>(null)
-  const [runCount, setRunCount] = useState(0)
+  const [_runCount, setRunCount] = useState(0)
   const [apiError, setApiError] = useState<string | null>(null)
 
   // Load claim data on mount

@@ -1,2 +1,102 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DIPLOMAT — .gitignore
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Environment & Secrets ────────────────────────────────────────────────────
 .env
-web/node_modules
+.env.local
+.env.*.local
+!.env.example
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+venv/
+env/
+ENV/
+.venv/
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+
+# ── Node / Next.js ───────────────────────────────────────────────────────────
+web/node_modules/
+web/.next/
+web/out/
+web/.vercel/
+web/.env.local
+web/.env.*.local
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# ── Vercel ───────────────────────────────────────────────────────────────────
+.vercel
+
+# ── IDE / Editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+.project
+.classpath
+.settings/
+
+# ── Agent Config (local tooling only) ────────────────────────────────────────
+.agents/
+.claude/
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── Misc ─────────────────────────────────────────────────────────────────────
+*.bak
+*.tmp
+*.orig
+*.rej

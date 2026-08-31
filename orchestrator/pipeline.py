@@ -24,7 +24,7 @@ class InsurancePipeline:
     def process(self, bill_doc: dict, discharge_doc: dict, 
                 inject_fault: str = None) -> dict:
         """
-        Run the full pipeline with retry loops.
+        Run the full pipeline with retry loops and fraud detection.
         """
         trace = []
         

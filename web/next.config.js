@@ -1,15 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async rewrites() {
-    const apiBase =
-      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${apiBase}/api/:path*`,
-      },
-    ]
-  },
+  // API routes are now handled by Next.js App Router (web/app/api/)
+  // The Python backend URL is used inside those routes via NEXT_PUBLIC_API_URL
 }
 
 module.exports = nextConfig

@@ -1,0 +1,26 @@
+import { NextResponse } from 'next/server'
+
+const bill = {"bill_id":"BILL-2026-001","hospital":"Apollo Hospitals, Chennai","admission_date":"2026-08-01","discharge_date":"2026-08-04","patient_name":"Rahul Sharma","policy_id":"POL-HL-2024-001","room_rent_per_day":15000,"room_rent_days":3,"room_rent_total":45000,"room_rent":{"category":"Deluxe","days":3,"rate_per_day":15000,"total":45000},"line_items":[{"item_id":"L001","description":"Room Rent (Deluxe) — 3 days @ ₹15,000/day","category":"room_rent","amount":45000},{"item_id":"L002","description":"Surgeon Fee — Dr. Kumar","category":"surgery","amount":120000},{"item_id":"L003","description":"OT Charges","category":"surgery","amount":85000},{"item_id":"L004","description":"Anesthesia","category":"surgery","amount":35000},{"item_id":"L005","description":"Diagnostics — CT Scan","category":"diagnostics","amount":25000},{"item_id":"L006","description":"Diagnostics — Blood Tests","category":"diagnostics","amount":15000},{"item_id":"L007","description":"Medicines","category":"pharmacy","amount":22000},{"item_id":"L008","description":"Registration Charges","category":"non_payable","amount":2500},{"item_id":"L009","description":"Gloves & Syringes","category":"non_payable","amount":3200},{"item_id":"L010","description":"Attendant Charges","category":"non_payable","amount":4800}],"bill_total":357500,"amount_in_words":"Three Lakh Twenty Thousand Rupees Only"}
+
+const discharge = {"patient_name":"Rahul Sharma","admission_date":"2026-08-01","discharge_date":"2026-08-04","diagnosis":"Appendectomy","procedure":"Laparoscopic Appendectomy","pre_existing_conditions":["none"],"doctor_notes":"Patient admitted for acute appendicitis. No history of diabetes or hypertension. Procedure uneventful."}
+
+const policy = {"policy_id":"POL-HL-2024-001","policy_holder":"Rahul Sharma","sum_insured":500000,"room_rent_sublimit":5000,"room_rent_proportionate":true,"waiting_periods":{"diabetes":730,"hypertension":365},"copay_percent":10,"non_payable_items":[{"code":"NP-01","name":"Registration Charges","max_deduction":null},{"code":"NP-02","name":"Gloves & Syringes","max_deduction":null},{"code":"NP-03","name":"Attendant Charges","max_deduction":null}],"ppn_network":true}
+
+export async function GET() {
+  // If a Python backend is configured, proxy to it
+  const apiBase = process.env.NEXT_PUBLIC_API_URL
+  if (apiBase) {
+    try {
+      const res = await fetch(`${apiBase}/api/claim-data`, { cache: 'no-store' })
+      if (res.ok) {
+        const data = await res.json()
+        return NextResponse.json(data)
+      }
+    } catch {
+      // Fall through to static data
+    }
+  }
+
+  // Serve bundled demo data (works on Vercel without a Python backend)
+  return NextResponse.json({ bill, discharge, policy })
+}

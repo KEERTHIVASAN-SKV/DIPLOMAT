@@ -9,7 +9,7 @@ interface ClaimSnapshotProps {
   policy: any
 }
 
-export default function ClaimSnapshot({ bill, discharge, policy }: ClaimSnapshotProps) {
+export default function ClaimSnapshot({ bill, discharge }: ClaimSnapshotProps) {
   const fields = [
     { icon: User, label: 'Patient', value: bill?.patient_name || '—' },
     { icon: Building2, label: 'Hospital', value: (bill?.hospital || '—').split(',')[0] },

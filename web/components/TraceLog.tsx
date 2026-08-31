@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle2, XCircle, RefreshCw, Play, ArrowRight } from 'lucide-react'
+import { CheckCircle2, XCircle, RefreshCw, Play } from 'lucide-react'
 
 interface TraceStep {
   step: string
@@ -19,7 +19,7 @@ interface TraceLogProps {
   steps: TraceStep[]
 }
 
-function getStepIcon(step: string, status: string) {
+function getStepIcon(_step: string, status: string) {
   if (status === 'PASSED') return <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
   if (status.includes('BOUNCED')) return <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
   if (status === 'FEEDBACK_LOOP') return <RefreshCw className="w-4 h-4 text-indigo-400 flex-shrink-0 animate-spin" />

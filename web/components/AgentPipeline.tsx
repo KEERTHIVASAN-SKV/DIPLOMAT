@@ -1,7 +1,7 @@
 'use client'
 
-import { motion, AnimatePresence } from 'framer-motion'
-import { CheckCircle2, XCircle, Clock, Minus, ArrowRight } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { CheckCircle2, XCircle, Clock, ArrowRight } from 'lucide-react'
 
 export interface PipelineNode {
   id: string
@@ -90,7 +90,6 @@ export default function AgentPipeline({ nodes }: AgentPipelineProps) {
           const cfg = STATUS_CONFIG[node.status]
           const isProcessing = node.status === 'processing'
           const showConnector = idx < nodes.length - 1
-          const nextNode = nodes[idx + 1]
           const connectorActive = node.status === 'pass' || node.status === 'bounce' || node.status === 'escalate'
           const connectorPassing = node.status === 'pass'
 

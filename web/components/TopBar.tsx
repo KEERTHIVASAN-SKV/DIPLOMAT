@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Settings, User } from 'lucide-react'
+import { Bell, Settings } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function TopBar() {

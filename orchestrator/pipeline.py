@@ -42,7 +42,8 @@ class InsurancePipeline:
             # Agent extracts
             extraction = self.intake.extract(
                 self.policy, bill_doc, discharge_doc, 
-                inject_fault=inject_fault if attempt == 1 else None  # Only inject fault on first try
+                inject_fault=inject_fault if attempt == 1 else None,  # Only inject fault on first try
+                previous_bounces=gate1_bounces if attempt > 1 else None  # Pass bounces on retry
             )
             trace.append({
                 "step": "A1_INTAKE", 
@@ -71,7 +72,8 @@ class InsurancePipeline:
                     trace.append({
                         "step": "PIPELINE", 
                         "status": "FEEDBACK_LOOP", 
-                        "detail": f"Sending {len(gate1_bounces)} bounce(s) back to IntakeAgent for retry"
+                        "detail": f"Sending {len(gate1_bounces)} bounce(s) back to IntakeAgent for retry",
+                        "feedback": gate1_bounces
                     })
         
         if not gate1_passed:
@@ -108,7 +110,8 @@ class InsurancePipeline:
             adjudicator = AdjudicatorAgent(self.policy)
             settlement = adjudicator.adjudicate(
                 extraction, rules,
-                inject_fault=inject_fault if attempt == 1 else None
+                inject_fault=inject_fault if attempt == 1 else None,
+                previous_bounces=gate2_bounces if attempt > 1 else None  # Pass bounces on retry
             )
             trace.append({
                 "step": "A3_ADJUDICATOR",
@@ -135,7 +138,8 @@ class InsurancePipeline:
                     trace.append({
                         "step": "PIPELINE",
                         "status": "FEEDBACK_LOOP",
-                        "detail": f"Sending {len(gate2_bounces)} bounce(s) back to AdjudicatorAgent for retry"
+                        "detail": f"Sending {len(gate2_bounces)} bounce(s) back to AdjudicatorAgent for retry",
+                        "feedback": gate2_bounces
                     })
         
         if not gate2_passed:

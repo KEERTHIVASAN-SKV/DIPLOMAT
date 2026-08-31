@@ -2,6 +2,8 @@ import json
 import sys
 import os
 
+sys.stdout.reconfigure(encoding='utf-8')
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from orchestrator.pipeline import InsurancePipeline
@@ -39,10 +41,23 @@ def print_settlement(settlement):
     print(f"  Payable:        ₹{settlement['payable']:,.2f}")
 
 
+def _method_tag(payload):
+    if not isinstance(payload, dict):
+        return None
+    em = payload.get("_extraction_method")
+    am = payload.get("_adjudication_method")
+    parts = []
+    if em:
+        parts.append(f"extraction={em}")
+    if am:
+        parts.append(f"adjudication={am}")
+    return f"  [{' | '.join(parts)}]" if parts else None
+
+
 def print_trace_step(step):
     step_name = step.get("step", "UNKNOWN")
     status = step.get("status", "UNKNOWN")
-    
+
     if step_name == "PIPELINE" and status == "FEEDBACK_LOOP":
         detail = step.get("detail", "")
         print(f"  🔄 {detail}")
@@ -54,7 +69,8 @@ def print_trace_step(step):
         attempt = step.get("attempt", "?")
         print(f"  ✅ {step_name} PASSED (attempt {attempt})")
     elif "ATTEMPT" in status:
-        print(f"  🔄 {step_name} — {status}")
+        tag = _method_tag(step.get("output")) or _method_tag(step.get("settlement")) or ""
+        print(f"  🔄 {step_name} — {status}{tag}")
     else:
         print(f"  ▶️  {step_name}: {status}")
 
@@ -94,6 +110,7 @@ def main():
 
     run_scenario("SCENARIO 1: Gate 1 — Intake misreads room rent (room_rent_misread)", "room_rent_misread")
     run_scenario("SCENARIO 2: Gate 2 — Adjudicator missing citation (missing_citation)", "missing_citation")
+    run_scenario("SCENARIO 3: Clean claim — no fault injection", None)
 
     print("\n" + "=" * 70)
     print("Demo Complete")

@@ -14,6 +14,8 @@ import glob
 import argparse
 from pathlib import Path
 
+sys.stdout.reconfigure(encoding='utf-8')
+
 from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
